@@ -1,24 +1,26 @@
 // ==UserScript==
 // @name         Nitan Airport Flair
 // @namespace    http://tampermonkey.net/
-// @version      0.4
-// @description  Enhances webpage content by identifying airport IATA codes, styling them, and adding interactive tooltips and hyperlinks, with an ignore list and local data resource.
+// @version      0.5.6
+// @description  Enhances webpages by identifying airport and multi-airport codes, styling them, and adding interactive tooltips/hyperlinks. Dismiss reverts instances.
 // @author       s5kf
 // @license      CC BY-NC-ND 4.0; https://creativecommons.org/licenses/by-nc-nd/4.0/
 // @match        *://www.uscardforum.com/*
 // @resource     airportJsonData https://raw.githubusercontent.com/s5kf/airport_flair/main/airports_filtered.json
+// @resource     multiAirportJsonData https://raw.githubusercontent.com/s5kf/airport_flair/main/multi_airport_data.json
 // @grant        GM_addStyle
 // @grant        GM_getResourceText
 // @run-at       document-idle
 // @downloadURL  https://raw.githubusercontent.com/s5kf/airport_flair/main/airport_flair.user.js
 // @updateURL    https://raw.githubusercontent.com/s5kf/airport_flair/main/airport_flair.user.js
-// @supportURL   https://github.com/s5kf/airport_flair/issues 
+// @supportURL   https://github.com/s5kf/airport_flair/issues
 // ==/UserScript==
 
 (function() {
     'use strict';
 
-    let airportData = {}; // To store airport data keyed by IATA code
+    let airportData = {}; // To store single airport data keyed by IATA code
+    let multiAirportData = {}; // To store multi-airport area data
     let observer = null; // To store the MutationObserver instance
 
     // --- Constants (moved up for early initialization) ---
@@ -26,130 +28,225 @@
     const processedMark = 'airport-flair-processed';
     const flairTag = 'airport-flair-tag'; // Class for the flair span itself
     const potentialFlairClass = 'potential-airport-code'; // New class for potential flairs
+    const multiAirportFlairClass = 'multi-airport-flair'; // New class for multi-airport flairs
+    const COMMON_TLA_BLOCKLIST = new Set([
+        "CEO", "CFO", "COO", "CTO", "CIO", "CMO", "BSO", // Common C-suite and department heads
+        "GDP", "GNP", "ROI", "KPI", "ETA", "FAQ", "DIY", "AKA", // Common business & general acronyms
+        "USB", "CPU", "GPU", "RAM", "SSD", "HDD", "OSX", "IOS", // Tech acronyms
+        "LOL", "OMG", "BTW", "FYI", "IMO", "BRB", // Internet slang
+        "USA", "DOT", "FAA", "CAA", "FBI", "CIA", // Government and regulatory acronyms
+        "ETA", "ETC", "INC", "LTD", "LLC", "DIY", "FAQ", "PDF", "XML", "DOC",
+        "API", "URL", "WWW", "CSS", "PHP", "SQL", "FTP",
+        "ESG", "VIX", "AOC", "AND", "MVP", "OTA","ITA", "AIR", "ADT" // User reported issues
 
-    // --- Load Airport Data from @resource ---
-    function initializeAirportData() {
+        // Add more as needed, ensure they are uppercase
+    ]);
+
+    // --- Load Data from @resource ---
+    function initializeData() {
+        let mainDataLoaded = false;
+        let multiDataLoaded = false;
+
+        // Load Main Airport Data
         try {
-            console.log("Attempting to load airport data from @resource...");
-            const jsonDataString = GM_getResourceText("airportJsonData");
-            if (!jsonDataString) {
-                console.error("Failed to get airport data from @resource. GM_getResourceText returned empty.");
-                return false;
+            console.log("[Airport Flair] Attempting to load main airport data from @resource...");
+            const airportJsonDataString = GM_getResourceText("airportJsonData");
+            if (!airportJsonDataString) {
+                console.error("[Airport Flair] Failed to get main airport data. GM_getResourceText returned empty.");
+            } else {
+                const sanitizedJsonDataString = airportJsonDataString
+                    .replace(/: Infinity,/g, ": null,")
+                    .replace(/: Infinity}/g, ": null}")
+                    .replace(/: NaN,/g, ": null,")
+                    .replace(/: NaN}/g, ": null}");
+                const data = JSON.parse(sanitizedJsonDataString);
+                data.forEach(airport => {
+                    if (airport.iata_code) {
+                        airportData[airport.iata_code.toUpperCase()] = airport;
+                    }
+                });
+                console.log("[Airport Flair] Main airport data loaded and processed:", Object.keys(airportData).length, "entries");
+                mainDataLoaded = true;
             }
-
-            // Pre-process the JSON string to handle non-standard values like Infinity and NaN
-            const sanitizedJsonDataString = jsonDataString
-                .replace(/: Infinity,/g, ": null,")
-                .replace(/: Infinity}/g, ": null}")
-                .replace(/: NaN,/g, ": null,")
-                .replace(/: NaN}/g, ": null}");
-
-            const data = JSON.parse(sanitizedJsonDataString);
-            data.forEach(airport => {
-                if (airport.iata_code) { // This will correctly skip null iata_codes
-                    airportData[airport.iata_code.toUpperCase()] = airport;
-                }
-            });
-            console.log("Airport data loaded and processed from @resource:", Object.keys(airportData).length, "entries");
-            return true;
         } catch (e) {
-            console.error("Error loading or parsing airport data from @resource:", e);
-            if (jsonDataString) { // Log snippet if resource was read but parsing failed
-                 console.error("Original resource text snippet (first 500 chars if error persists):", jsonDataString.substring(0,500));
-            }
-            return false;
+            console.error("[Airport Flair] Error loading or parsing main airport data:", e);
+            // Optional: log airportJsonDataString snippet if needed
         }
+
+        // Load Multi-Airport Data
+        try {
+            console.log("[Airport Flair] Attempting to load multi-airport data from @resource...");
+            const multiAirportJsonDataString = GM_getResourceText("multiAirportJsonData");
+            if (!multiAirportJsonDataString) {
+                console.error("[Airport Flair] Failed to get multi-airport data. GM_getResourceText returned empty.");
+            } else {
+                multiAirportData = JSON.parse(multiAirportJsonDataString); // Assuming this JSON is clean
+                console.log("[Airport Flair] Multi-airport data loaded and processed:", Object.keys(multiAirportData).length, "entries");
+                multiDataLoaded = true;
+            }
+        } catch (e) {
+            console.error("[Airport Flair] Error loading or parsing multi-airport data:", e);
+            // Optional: log multiAirportJsonDataString snippet if needed
+        }
+
+        return mainDataLoaded; // Script functionality primarily depends on main airport data for flags etc.
+                               // Multi-airport data is supplementary.
     }
 
     // Initialize data and then process the page
-    if (initializeAirportData()) {
-        // Call processPage directly as data loading is now synchronous relative to script execution start
-        // It might still be deferred by @run-at document-idle, so DOM might be ready.
-        // Ensure processPage handles the case where the DOM isn't fully ready if run too early,
-        // but with document-idle, it should be fine.
+    if (initializeData()) {
         processPage();
     } else {
-        console.error("Airport Flair script will not run due to data loading issues.");
+        console.error("[Airport Flair] Script will not run effectively due to critical data loading issues (main airport data).");
     }
 
     // --- CSS Styles ---
     function getDynamicStyles() {
-        const prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
         const htmlElement = document.documentElement;
         const bodyElement = document.body;
 
-        let isLikelyDarkMode = prefersDark ||
-                               htmlElement.classList.contains('dark') ||
-                               bodyElement.classList.contains('dark') ||
-                               htmlElement.classList.contains('dark-mode') || // Added common alternative
-                               bodyElement.classList.contains('dark-mode');   // Added common alternative
+        let isLikelyDarkMode; // Undetermined initially
+        let detectionMethod = "initial"; // For debugging
 
-        // Get computed background colors
-        const htmlBgColor = getComputedStyle(htmlElement).backgroundColor;
-        const bodyBgColor = getComputedStyle(bodyElement).backgroundColor;
-
-        // Function to check if a CSS color string represents a dark color
-        function isColorDark(colorString) {
+        // --- Helper functions for color analysis (assuming they are defined correctly elsewhere or here) ---
+        function isColorActuallyDark(colorString) {
             if (!colorString || colorString === 'transparent' || colorString === 'rgba(0, 0, 0, 0)') return false;
-            if (colorString === 'rgb(0, 0, 0)' || colorString === '#000000') return true; // Pure black
+            if (colorString === 'rgb(0, 0, 0)' || colorString === '#000000') return true;
             try {
-                const rgbMatch = colorString.match(/rgba?\((\d+),\s*(\d+),\s*(\d+)/);
+                const rgbMatch = colorString.match(/rgba?\((\d+),\s*(\d+),\s*(\d+)\)/);
                 if (rgbMatch) {
                     const r = parseInt(rgbMatch[1], 10);
                     const g = parseInt(rgbMatch[2], 10);
                     const b = parseInt(rgbMatch[3], 10);
-                    // Heuristic: if average intensity is low, or all components are relatively low
-                    if ((r + g + b) / 3 < 75 || (r < 100 && g < 100 && b < 100)) {
+                    if ((r + g + b) / 3 < 85 || (r < 110 && g < 110 && b < 110)) { // Adjusted threshold slightly
                         return true;
                     }
                 }
-            } catch (e) {
-                // Ignore parsing errors, default to not dark for this check
-            }
+            } catch (e) { /* ignore */ }
             return false;
         }
 
-        if (!isLikelyDarkMode) {
-            // If no class or media query indicated dark mode, check computed background colors
-            if (isColorDark(bodyBgColor) || isColorDark(htmlBgColor)) {
-                isLikelyDarkMode = true;
+        function isVeryLightNonWhiteGrey(colorString) {
+            if (!colorString || colorString === 'transparent' || colorString === 'rgba(0, 0, 0, 0)') return false;
+            try {
+                const rgbMatch = colorString.match(/rgba?\((\d+),\s*(\d+),\s*(\d+)\)/);
+                if (rgbMatch) {
+                    const r = parseInt(rgbMatch[1], 10);
+                    const g = parseInt(rgbMatch[2], 10);
+                    const b = parseInt(rgbMatch[3], 10);
+                    if (r > 225 && g > 225 && b > 225 && !(r === 255 && g === 255 && b === 255)) { // Adjusted threshold
+                        if (Math.abs(r - g) < 25 && Math.abs(g - b) < 25 && Math.abs(r - b) < 25) {
+                            return true;
+                        }
+                    }
+                }
+            } catch (e) { /* ignore */ }
+            return false;
+        }
+        // --- End Helper Functions ---
+
+        // 1. Check for specific Discourse theme classes on <html> (Highest Priority)
+        const htmlClasses = htmlElement.classList;
+        if (htmlClasses.contains('theme-dark') || htmlClasses.contains('discourse-dark-theme') || htmlClasses.contains('dark-scheme')) {
+            isLikelyDarkMode = true;
+            detectionMethod = "html_specific_class_dark";
+        } else if (htmlClasses.contains('theme-light') || htmlClasses.contains('discourse-light-theme') || htmlClasses.contains('light-scheme')) {
+            isLikelyDarkMode = false;
+            detectionMethod = "html_specific_class_light";
+        }
+
+        // 2. If no specific HTML classes, try computed background colors (Body highest, then HTML)
+        if (typeof isLikelyDarkMode === 'undefined') {
+            const bodyBgColor = getComputedStyle(bodyElement).backgroundColor;
+            const htmlBgColor = getComputedStyle(htmlElement).backgroundColor;
+            const bodyIsTransparent = (!bodyBgColor || bodyBgColor === 'transparent' || bodyBgColor === 'rgba(0, 0, 0, 0)');
+            const htmlIsTransparent = (!htmlBgColor || htmlBgColor === 'transparent' || htmlBgColor === 'rgba(0, 0, 0, 0)');
+
+            if (!bodyIsTransparent) {
+                isLikelyDarkMode = isColorActuallyDark(bodyBgColor);
+                detectionMethod = "body_bg_color_check";
+            } else if (!htmlIsTransparent) {
+                isLikelyDarkMode = isColorActuallyDark(htmlBgColor);
+                detectionMethod = "html_bg_color_check";
             }
         }
 
-        let flairBgColor = '#eff3f4'; // Default light mode
+        // 3. If still undetermined, check generic classes on <html> or <body>
+        if (typeof isLikelyDarkMode === 'undefined') {
+            if (htmlElement.classList.contains('dark') || bodyElement.classList.contains('dark') ||
+                htmlElement.classList.contains('dark-mode') || bodyElement.classList.contains('dark-mode')) {
+                isLikelyDarkMode = true;
+                detectionMethod = "generic_class_dark";
+            }
+            // If generic dark classes are not found, we assume light by omission at this stage if still undefined.
+        }
+
+        // 4. As a final fallback, use prefers-color-scheme if still undetermined.
+        if (typeof isLikelyDarkMode === 'undefined') {
+            const prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+            isLikelyDarkMode = prefersDark;
+            detectionMethod = "prefers_color_scheme";
+        }
+
+        // Ensure isLikelyDarkMode has a boolean value. If somehow it's still undefined, default to light.
+        if (typeof isLikelyDarkMode === 'undefined') {
+             console.warn("[Airport Flair] Dark mode detection inconclusive, defaulting to light mode. Final detection stage:", detectionMethod);
+             isLikelyDarkMode = false; // Default to light
+             detectionMethod += "_defaulted_light";
+        }
+        // console.log(`[Airport Flair] Theme detection: ${isLikelyDarkMode ? 'Dark' : 'Light'}. Method: ${detectionMethod}`);
+
+
+        // --- Determine flair background color based on isLikelyDarkMode ---
+        let flairBgColor;
+        let flairTextColor; // New variable for text color
+
+        // Re-get body/html background colors here for the specific "lights out" or "very light grey" checks
+        const bodyBgColorFinal = getComputedStyle(bodyElement).backgroundColor;
+        const htmlBgColorFinal = getComputedStyle(htmlElement).backgroundColor;
 
         if (isLikelyDarkMode) {
-            // Now, differentiate between dim and lights out if we've determined it's dark
-            // Prioritize body background for "lights out" check, then html
-            if (bodyBgColor === 'rgb(0, 0, 0)' || bodyBgColor === '#000000' ||
-                htmlBgColor === 'rgb(0, 0, 0)' || htmlBgColor === '#000000') {
+            // Check for "lights out" (pure black bg)
+            if ((bodyBgColorFinal === 'rgb(0, 0, 0)' || bodyBgColorFinal === '#000000') ||
+                (htmlBgColorFinal === 'rgb(0, 0, 0)' || htmlBgColorFinal === '#000000')) {
                 flairBgColor = '#202327'; // Lights out
             } else {
                 flairBgColor = '#273440'; // Dim mode (default dark)
             }
+            flairTextColor = '#e6c07b'; // Standard dark mode text color
+        } else { // Light mode
+            // Default light mode flair background
+            flairBgColor = '#eff3f4';
+            flairTextColor = '#c18401'; // User requested light mode text color
+            // Check if the background is a very light non-white grey.
+            if (isVeryLightNonWhiteGrey(bodyBgColorFinal) || isVeryLightNonWhiteGrey(htmlBgColorFinal)) {
+                flairBgColor = '#e0e0e0'; // Use a slightly more distinct grey for very light grey BGs
+            }
         }
 
         return `
-            .airport-flair {
+            .${flairTag} {
                 display: inline-flex;
                 align-items: center;
                 vertical-align: baseline;
-                font-family: 'Fira Code', 'Roboto Mono', monospace;
+                font-family: 'Fira Code', 'Roboto Mono', Arial, sans-serif; /* UPDATED FONT */
                 padding: 1px 4px; /* Reduced padding */
-                color: #e6c07b; /* Light gold text */
+                color: ${flairTextColor}; /* DYNAMIC TEXT COLOR */
                 background-color: ${flairBgColor};
                 border-radius: 3px;
                 text-decoration: none; /* For the anchor tag */
                 margin: 0 1px; /* Small margin to prevent touching adjacent text */
                 position: relative; /* For absolute positioning of the dismiss button */
             }
-            .airport-flair img.country-flag {
+            .${flairTag} img.country-flag {
                 width: 16px;
                 height: 12px;
                 margin-left: 4px; /* Switched from margin-right and slightly increased for balance */
                 vertical-align: middle;
             }
-            .airport-flair .dismiss-flair {
+            /* Unified base styles for dismiss button in both flair types */
+            .${flairTag} .dismiss-flair,
+            .${multiAirportFlairClass} .dismiss-flair {
                 position: absolute;
                 top: -6px;
                 right: -6px;
@@ -164,32 +261,76 @@
                 border-radius: 50%;
                 cursor: pointer;
                 opacity: 0;
-                visibility: hidden; /* Start hidden */
-                /* Only transition opacity and background-color for smoothness */
-                transition: opacity 0.15s ease-in-out, background-color 0.15s ease-in-out;
                 pointer-events: none; /* Prevent interaction when hidden */
                 z-index: 10;
+                will-change: opacity, background-color; /* Hint for smoother transitions */
             }
-            .airport-flair:hover .dismiss-flair {
-                opacity: 0.85; /* Default visible opacity */
-                visibility: visible; /* Become visible */
-                pointer-events: auto; /* Allow interaction when visible */
-            }
-            .airport-flair .dismiss-flair:hover {
-                opacity: 1; /* Full opacity on button hover */
-                background-color: rgba(51, 51, 51, 0.85); /* Darker, slightly more opaque on hover */
-            }
+            /* Removed redundant .${flairTag}:hover .dismiss-flair and .${flairTag} .dismiss-flair:hover rules
+               as they are covered by the combined selectors below. */
+
             .${potentialFlairClass} {
                 text-decoration: underline dotted rgba(128, 128, 128, 0.7);
                 cursor: help;
                 /* Ensure it doesn't pick up parent link styles if it's inside an <a> not yet processed */
-                color: inherit; 
+                color: inherit;
             }
             .${potentialFlairClass}:hover {
                 text-decoration-color: rgba(100, 100, 100, 1); /* Darker underline on hover */
                 background-color: rgba(200, 200, 200, 0.1); /* Very subtle hover background */
             }
             /* No specific hover title CSS needed if using default browser title attribute */
+
+            /* Styles for Multi-Airport Flairs */
+            .${multiAirportFlairClass} {
+                display: inline-flex;
+                align-items: center;
+                vertical-align: baseline;
+                font-family: 'Fira Code', 'Roboto Mono', Arial, sans-serif; /* UPDATED FONT */
+                padding: 1px 4px;
+                /* color: #d19a66; // Default, will be overridden by theme specific below */
+                /* background-color: #3a3d41; // Default, will be overridden by theme specific below */
+                border-radius: 3px;
+                text-decoration: none;
+                margin: 0 1px;
+                position: relative;
+            }
+            /* Dynamic background AND color for multi-airport flairs based on theme */
+            /* Light mode for multi-airport */
+            html:not(.dark) body:not(.dark) .${multiAirportFlairClass},
+            body:not([style*="background-color: rgb(0, 0, 0)"]):not([style*="background-color: #000"]) .${multiAirportFlairClass} {
+                background-color: ${isLikelyDarkMode ? '#273440' : '#e0e0e0'}; /* Lighter grey for light mode */
+                color: ${isLikelyDarkMode ? '#e6c07b' : '#c18401'}; /* USER REQUESTED LIGHT MODE COLOR */
+            }
+            html.dark .${multiAirportFlairClass},
+            body.dark .${multiAirportFlairClass},
+            body[style*="background-color: rgb(0, 0, 0)"] .${multiAirportFlairClass},
+            body[style*="background-color: #000"] .${multiAirportFlairClass} {
+                 background-color: #273440; /* Dim mode dark */
+                 color: #e6c07b; /* Revert to standard flair text color in dark mode */
+            }
+            /* Consider a specific lights-out color if needed, for now dim is fine */
+
+            .${multiAirportFlairClass} img.country-flag {
+                width: 16px;
+                height: 12px;
+                margin-left: 4px;
+                vertical-align: middle;
+            }
+            /* No specific hover title CSS needed */
+
+            /* Combining dismiss button hover selectors for robustness */
+            .${flairTag}:hover .dismiss-flair,
+            .${multiAirportFlairClass}:hover .dismiss-flair {
+                opacity: 0.85;
+                pointer-events: auto;
+                transition: opacity 0.15s ease-in-out, background-color 0.15s ease-in-out;
+            }
+            .${flairTag} .dismiss-flair:hover,
+            .${multiAirportFlairClass} .dismiss-flair:hover {
+                opacity: 1;
+                background-color: rgba(51, 51, 51, 0.85);
+                transition: opacity 0.15s ease-in-out, background-color 0.15s ease-in-out;
+            }
         `;
     }
 
@@ -212,126 +353,123 @@
     // --- DOM Interaction & Manipulation ---
     function createFlairElement(code, airportInfo, originalCasing = null) {
         const anchor = document.createElement('a');
-        anchor.href = `https://www.google.com/search?q=airport+${code}`;
+        anchor.href = `https://www.google.com/search?q=airport+${encodeURIComponent(code)}`;
         anchor.target = '_blank';
         anchor.rel = 'noopener noreferrer';
-        anchor.classList.add('airport-flair');
-        anchor.classList.add(processedMark); // Mark the anchor itself
+        anchor.classList.add(flairTag); // Standard flair tag
+        anchor.classList.add(processedMark);
 
-        // Tooltip text
         let titleText = `${airportInfo.name} (${code})`;
         if (airportInfo.municipality) titleText += `, ${airportInfo.municipality}`;
         if (airportInfo.iso_country) titleText += `, ${airportInfo.iso_country}`;
         anchor.title = titleText;
 
-        // Append IATA code text first
         const codeTextNode = document.createTextNode(code);
-        anchor.appendChild(codeTextNode);
+        anchor.appendChild(codeTextNode); // Text first
 
-        // Then append flag image if country is available
         if (airportInfo.iso_country) {
             const flagImg = document.createElement('img');
             flagImg.src = `https://cdnjs.cloudflare.com/ajax/libs/flag-icon-css/4.1.5/flags/4x3/${airportInfo.iso_country.toLowerCase()}.svg`;
             flagImg.alt = `${airportInfo.iso_country} flag`;
             flagImg.classList.add('country-flag');
-            anchor.appendChild(flagImg);
+            anchor.appendChild(flagImg); // Flag after text
         }
 
-        // Add Dismiss Button
+        // Dismiss Button for single airport flairs
         const dismissBtn = document.createElement('span');
         dismissBtn.classList.add('dismiss-flair');
         dismissBtn.innerHTML = '&times;';
-        dismissBtn.dataset.code = code; // This is the uppercase code
+        dismissBtn.dataset.code = code;
+        dismissBtn.dataset.type = 'single-airport'; // Explicitly mark type
 
         if (originalCasing && originalCasing !== code) {
             dismissBtn.dataset.originalCasing = originalCasing;
-            dismissBtn.title = `Revert to '${originalCasing}' (potential airport code)`;
+            dismissBtn.title = `Revert to '${originalCasing}' (potential code)`;
         } else {
-            // For originally all-caps flairs, or if originalCasing is same as code (shouldn't happen with current logic)
-            dismissBtn.title = `Revert to '${code}' (potential airport code)`;
+            dismissBtn.title = `Revert to '${code}' (potential code)`;
         }
 
         dismissBtn.addEventListener('click', function(event) {
-            console.log("[Airport Flair] Dismiss button clicked. Event target:", event.target);
+            console.log("[Airport Flair] Single Airport Dismiss button clicked:", event.target.dataset.code);
             event.preventDefault();
             event.stopPropagation();
 
-            const currentCode = event.target.dataset.code; // Uppercase code of the flair
-            const originalMixedCasing = event.target.dataset.originalCasing; // Original mixed-case, if any
-            const currentFlairElement = event.target.closest('.airport-flair');
-            console.log("[Airport Flair] Code to revert/handle:", currentCode, "Original mixed casing:", originalMixedCasing);
-            console.log("[Airport Flair] Found flair element:", currentFlairElement);
+            const currentCode = event.target.dataset.code;
+            const originalMixedCasing = event.target.dataset.originalCasing;
+            const currentFlairElement = event.target.closest('.' + flairTag);
+
+            const codeForPotential = originalMixedCasing || currentCode;
+            const airportInfoForReversion = airportData[codeForPotential.toUpperCase()];
 
             if (currentFlairElement && currentFlairElement.parentNode) {
-                const codeForPotential = originalMixedCasing || currentCode; // Use original mixed, fallback to current uppercase
-                console.log("[Airport Flair] Attempting to revert to potential flair with casing:", codeForPotential);
-                const airportInfoForReversion = airportData[codeForPotential.toUpperCase()]; // Ensure we use uppercase for lookup
-
                 if (airportInfoForReversion) {
-                    const potentialElement = createPotentialFlairElement(codeForPotential, airportInfoForReversion);
+                    const potentialElement = createPotentialFlairElement(codeForPotential, airportInfoForReversion, false);
                     currentFlairElement.parentNode.replaceChild(potentialElement, currentFlairElement);
-                    console.log("[Airport Flair] Flair replaced with new potential flair using casing:", codeForPotential);
                 } else {
-                    // Fallback: This should ideally not be reached if data is consistent and currentCode is always valid.
-                    // Revert to plain text (using the most specific code we have) if airport info is lost.
-                    const revertText = originalMixedCasing || currentCode;
                     const revertedTextSpan = document.createElement('span');
-                    revertedTextSpan.textContent = revertText;
+                    revertedTextSpan.textContent = codeForPotential;
                     revertedTextSpan.classList.add(processedMark);
                     currentFlairElement.parentNode.replaceChild(revertedTextSpan, currentFlairElement);
-                    console.warn("[Airport Flair] Reverted to text; airport info not found for potential (should not happen for code:", codeForPotential.toUpperCase(), ")");
                 }
-            } else {
-                console.log("[Airport Flair] Could not find flair element or its parent for dismiss.", currentFlairElement);
             }
         });
         anchor.appendChild(dismissBtn);
-
         return anchor;
     }
 
-    // --- Function to create a span for potential, non-all-caps airport codes ---
-    function createPotentialFlairElement(originalCode, airportInfo) {
+    // Modified createPotentialFlairElement to handle both single and multi-airport types
+    function createPotentialFlairElement(originalCode, info, isMultiAirport = false) {
         const span = document.createElement('span');
         span.classList.add(potentialFlairClass);
-        span.classList.add(processedMark); // Mark as processed to avoid re-evaluation by observer/processNode
+        span.classList.add(processedMark);
         span.textContent = originalCode;
-        
-        let titleText = `Recognize ${originalCode.toUpperCase()} as an airport?`;
-        if (airportInfo && airportInfo.name) {
-            titleText += ` (${airportInfo.name})`;
+
+        let titleText = `Recognize ${originalCode.toUpperCase()} as an `;
+        if (isMultiAirport && info && info.name) {
+            titleText += `area? (${info.name})`;
+        } else if (!isMultiAirport && info && info.name) {
+            titleText += `airport? (${info.name})`;
+        } else {
+            titleText += `code?`; // Fallback
         }
         span.title = titleText;
 
-        // Store necessary info for conversion
         span.dataset.originalCode = originalCode;
+        span.dataset.isMulti = isMultiAirport ? "true" : "false";
 
         const clickListener = function(event) {
             event.preventDefault();
             event.stopPropagation();
 
             const codeToConvert = event.target.dataset.originalCode;
+            const wasMulti = event.target.dataset.isMulti === "true";
             const uppercaseCode = codeToConvert.toUpperCase();
-            const currentAirportInfo = airportData[uppercaseCode];
 
-            if (currentAirportInfo) {
-                // Pass the originalCode (mixed-case) to createFlairElement
-                const fullFlairElement = createFlairElement(uppercaseCode, currentAirportInfo, codeToConvert);
-                if (event.target.parentNode) {
-                    event.target.parentNode.replaceChild(fullFlairElement, event.target);
+            let fullFlairElement;
+            if (wasMulti) {
+                const maInfo = multiAirportData[uppercaseCode];
+                if (maInfo) {
+                    fullFlairElement = createMultiAirportFlairElement(uppercaseCode, maInfo, codeToConvert);
+                }
+            } else {
+                const airportInfo = airportData[uppercaseCode];
+                if (airportInfo) {
+                    fullFlairElement = createFlairElement(uppercaseCode, airportInfo, codeToConvert);
                 }
             }
-            // Listener is automatically removed as the element it was attached to is replaced.
+
+            if (fullFlairElement && event.target.parentNode) {
+                event.target.parentNode.replaceChild(fullFlairElement, event.target);
+            }
         };
-
-        span.addEventListener('click', clickListener, { once: true }); // { once: true } ensures it runs only once
-
+        span.addEventListener('click', clickListener, { once: true });
         return span;
     }
 
     function replaceTextWithFlair(textNode) {
-        if (!textNode.parentNode || textNode.parentNode.classList.contains(processedMark) || textNode.parentNode.closest('a, script, style, input, textarea, [contenteditable="true"]')) {
-            return; // Already processed or in an excluded element
+        if (!textNode.parentNode || textNode.parentNode.classList.contains(processedMark) ||
+            textNode.parentNode.closest('a, script, style, input, textarea, [contenteditable="true"]')) {
+            return;
         }
 
         const text = textNode.nodeValue;
@@ -341,40 +479,53 @@
         let foundMatch = false;
 
         while ((match = iataRegex.exec(text)) !== null) {
-            const originalCode = match[1]; // e.g., "sjc", "DCA", "LAX"
+            const originalCode = match[1];
             const uppercaseCode = originalCode.toUpperCase();
 
             const airportInfo = airportData[uppercaseCode];
+            const maInfo = multiAirportData[uppercaseCode];
 
-            if (airportInfo) {
+            if (COMMON_TLA_BLOCKLIST.has(uppercaseCode)) {
+                if (airportInfo || maInfo) { // It's a common TLA but also a valid airport/MA code
+                    foundMatch = true;
+                    if (match.index > lastIndex) {
+                        fragment.appendChild(document.createTextNode(text.substring(lastIndex, match.index)));
+                    }
+                    // Always create potential for blocklisted items that are also airports
+                    fragment.appendChild(createPotentialFlairElement(originalCode, airportInfo || maInfo, !!maInfo));
+                    lastIndex = iataRegex.lastIndex;
+                }
+                // If it's in the blocklist and NOT an airport, we do nothing, effectively skipping it.
+                // The loop will continue, and this part of the text remains unchanged.
+            } else if (airportInfo || maInfo) { // Not in blocklist, but is an airport/MA code
                 foundMatch = true;
-                // Text before the match
                 if (match.index > lastIndex) {
                     fragment.appendChild(document.createTextNode(text.substring(lastIndex, match.index)));
                 }
 
-                // If original code is already all uppercase, create full flair
-                // Otherwise, create a potential flair span
-                if (originalCode === uppercaseCode) {
-                    const flairElement = createFlairElement(uppercaseCode, airportInfo);
-                    fragment.appendChild(flairElement);
-                } else {
-                    const potentialElement = createPotentialFlairElement(originalCode, airportInfo);
-                    fragment.appendChild(potentialElement);
+                if (originalCode === uppercaseCode) { // Already all caps
+                    if (airportInfo) {
+                        fragment.appendChild(createFlairElement(uppercaseCode, airportInfo));
+                    } else { // maInfo must be true
+                        fragment.appendChild(createMultiAirportFlairElement(uppercaseCode, maInfo));
+                    }
+                } else { // Mixed or lowercase - create potential
+                    if (airportInfo) {
+                        fragment.appendChild(createPotentialFlairElement(originalCode, airportInfo, false));
+                    } else { // maInfo must be true
+                        fragment.appendChild(createPotentialFlairElement(originalCode, maInfo, true));
+                    }
                 }
                 lastIndex = iataRegex.lastIndex;
             }
+            // If no conditions met (not blocklisted, not airport), loop continues, text remains.
         }
 
         if (foundMatch) {
-            // Text after the last match
             if (lastIndex < text.length) {
                 fragment.appendChild(document.createTextNode(text.substring(lastIndex)));
             }
-            // Replace the original text node with the fragment
             textNode.parentNode.replaceChild(fragment, textNode);
-            // Mark parent to avoid re-processing (more robust than just the flair itself having the mark for parent checks)
-            // However, this might be too broad. Marking the flair element itself (done in createFlairElement) and checking for that class is safer.
         }
     }
 
@@ -382,11 +533,9 @@
         if (node.nodeType === Node.TEXT_NODE) {
             replaceTextWithFlair(node);
         }
-        // Check if the node itself or its parent has been processed or is an excluded type
-        else if (node.nodeType === Node.ELEMENT_NODE && 
-                 !node.classList.contains(processedMark) && // Check for the generic processed mark
-                 !node.closest('a, script, style, input, textarea, [contenteditable="true"], .' + flairTag + ', .' + potentialFlairClass)) {
-            // If it's an element node, and not one of our flairs (full or potential), process its children
+        else if (node.nodeType === Node.ELEMENT_NODE &&
+                 !node.classList.contains(processedMark) &&
+                 !node.closest('a, script, style, input, textarea, [contenteditable="true"], .option-text, .' + flairTag + ', .' + potentialFlairClass + ', .' + multiAirportFlairClass)) {
              Array.from(node.childNodes).forEach(child => processNode(child));
         }
     }
@@ -434,4 +583,81 @@
         }
     });
 
-})(); 
+    // --- Create Flair Elements ---
+    // Function to create the actual styled flair element for MULTI-AIRPORT codes
+    function createMultiAirportFlairElement(code, maInfo, originalCasing = null) {
+        const anchor = document.createElement('a');
+        anchor.href = `https://www.google.com/search?q=${encodeURIComponent(maInfo.name)}`; // Search for the area name
+        anchor.target = '_blank';
+        anchor.rel = 'noopener noreferrer';
+        anchor.classList.add(multiAirportFlairClass); // Use special class
+        anchor.classList.add(processedMark);
+
+        anchor.title = `${maInfo.name} (${code})`;
+
+        // Flag logic: use primaryAirportForFlag from maInfo to look up in airportData
+        if (maInfo.primaryAirportForFlag && airportData[maInfo.primaryAirportForFlag]) {
+            const primaryAirportDetails = airportData[maInfo.primaryAirportForFlag];
+            if (primaryAirportDetails.iso_country) {
+                const flagImg = document.createElement('img');
+                flagImg.src = `https://cdnjs.cloudflare.com/ajax/libs/flag-icon-css/4.1.5/flags/4x3/${primaryAirportDetails.iso_country.toLowerCase()}.svg`;
+                flagImg.alt = `${primaryAirportDetails.iso_country} flag`;
+                flagImg.classList.add('country-flag');
+                anchor.appendChild(flagImg); // Flag first for multi-airport to differentiate?
+            }
+        }
+
+        const codeTextNode = document.createTextNode(code);
+        if (anchor.firstChild && anchor.firstChild.tagName === 'IMG') { // If flag was added, append text after
+            anchor.appendChild(codeTextNode);
+        } else { // Otherwise, text is first
+            anchor.insertBefore(codeTextNode, anchor.firstChild);
+        }
+
+        // Add Dismiss Button
+        const dismissBtn = document.createElement('span');
+        dismissBtn.classList.add('dismiss-flair');
+        dismissBtn.innerHTML = '&times;';
+        dismissBtn.dataset.code = code; // Uppercase code of the flair
+        dismissBtn.dataset.type = 'multi-airport'; // Mark type for potential differentiated dismiss logic
+
+        // Determine title and if originalCasing needs to be stored for dismiss
+        if (originalCasing && originalCasing !== code) {
+            dismissBtn.dataset.originalCasing = originalCasing;
+            dismissBtn.title = `Revert to '${originalCasing}' (potential code)`;
+        } else {
+            dismissBtn.title = `Revert to '${code}' (potential code)`;
+        }
+
+        dismissBtn.addEventListener('click', function(event) {
+            console.log("[Airport Flair] Multi-Airport Dismiss button clicked:", event.target.dataset.code);
+            event.preventDefault();
+            event.stopPropagation();
+
+            const currentCode = event.target.dataset.code;
+            const originalMixedCasing = event.target.dataset.originalCasing;
+            const currentFlairElement = event.target.closest('.' + multiAirportFlairClass);
+            const codeForPotential = originalMixedCasing || currentCode;
+            const maInfoForReversion = multiAirportData[codeForPotential.toUpperCase()];
+            // Also check regular airport data in case it's an ambiguous code that got here
+            const airportInfoForReversion = airportData[codeForPotential.toUpperCase()];
+
+            if (currentFlairElement && currentFlairElement.parentNode) {
+                const infoForPotential = maInfoForReversion || airportInfoForReversion; // Prefer MA info if available
+                if (infoForPotential) {
+                    const potentialElement = createPotentialFlairElement(codeForPotential, infoForPotential, !!maInfoForReversion);
+                    currentFlairElement.parentNode.replaceChild(potentialElement, currentFlairElement);
+                } else {
+                    // Fallback to plain text if no info found (should be rare)
+                    const revertedTextSpan = document.createElement('span');
+                    revertedTextSpan.textContent = codeForPotential;
+                    revertedTextSpan.classList.add(processedMark);
+                    currentFlairElement.parentNode.replaceChild(revertedTextSpan, currentFlairElement);
+                }
+            }
+        });
+        anchor.appendChild(dismissBtn);
+        return anchor;
+    }
+
+})();
