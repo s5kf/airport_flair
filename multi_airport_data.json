@@ -1,0 +1,135 @@
+{
+    "CHI": {
+        "name": "Chicago Metropolitan Area",
+        "primaryAirportForFlag": "ORD",
+        "airports": [
+            "ORD",
+            "MDW"
+        ]
+    },
+    "HAW": {
+        "name": "Hawaii - Large Airports",
+        "primaryAirportForFlag": "HNL",
+        "airports": [
+            "HNL",
+            "OGG",
+            "KOA",
+            "LIH"
+        ]
+    },
+    "LON": {
+        "name": "London, UK Metropolitan Area",
+        "primaryAirportForFlag": "LGW",
+        "airports": [
+            "LGW",
+            "LHR",
+            "LCY",
+            "STN",
+            "LTN"
+        ]
+    },
+    "NYC": {
+        "name": "New York City Metropolitan Area",
+        "primaryAirportForFlag": "JFK",
+        "airports": [
+            "JFK",
+            "LGA",
+            "EWR"
+        ]
+    },
+    "OSA": {
+        "name": "Osaka, Japan Metropolitan Area",
+        "primaryAirportForFlag": "KIX",
+        "airports": [
+            "KIX",
+            "ITM"
+        ]
+    },
+    "PAR": {
+        "name": "Paris, France Metropolitan Area",
+        "primaryAirportForFlag": "CDG",
+        "airports": [
+            "CDG",
+            "ORY"
+        ]
+    },
+    "QBA": {
+        "name": "San Francisco Bay Area",
+        "primaryAirportForFlag": "SFO",
+        "airports": [
+            "SFO",
+            "SJC",
+            "OAK"
+        ]
+    },
+    "QLA": {
+        "name": "Los Angeles Metropolitan Area",
+        "primaryAirportForFlag": "LAX",
+        "airports": [
+            "LAX",
+            "BUR",
+            "SNA",
+            "ONT",
+            "LGB"
+        ]
+    },
+    "QMI": {
+        "name": "Miami, Florida Metropolitan Area",
+        "primaryAirportForFlag": "MIA",
+        "airports": [
+            "MIA",
+            "FLL",
+            "PBI"
+        ]
+    },
+    "RIO": {
+        "name": "Rio de Janeiro, Brazil Metropolitan Area",
+        "primaryAirportForFlag": "GIG",
+        "airports": [
+            "GIG",
+            "SDU"
+        ]
+    },
+    "SAO": {
+        "name": "Sao Paulo, Brazil Metropolitan Area",
+        "primaryAirportForFlag": "GRU",
+        "airports": [
+            "GRU",
+            "CGH",
+            "VCP"
+        ]
+    },
+    "SEL": {
+        "name": "Seoul, South Korea Metropolitan Area",
+        "primaryAirportForFlag": "ICN",
+        "airports": [
+            "ICN",
+            "GMP"
+        ]
+    },
+    "TYO": {
+        "name": "Tokyo, Japan Metropolitan Area",
+        "primaryAirportForFlag": "HND",
+        "airports": [
+            "HND",
+            "NRT"
+        ]
+    },
+    "WAS": {
+        "name": "Washington, DC Metropolitan Area",
+        "primaryAirportForFlag": "IAD",
+        "airports": [
+            "IAD",
+            "DCA",
+            "BWI"
+        ]
+    },
+    "YTO": {
+        "name": "Toronto, Canada Metropolitan Area",
+        "primaryAirportForFlag": "YYZ",
+        "airports": [
+            "YYZ",
+            "YTZ"
+        ]
+    }
+}
