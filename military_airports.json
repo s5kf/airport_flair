@@ -1,0 +1,110 @@
+{
+  "CHS": {
+    "name": "Charleston International Airport",
+    "municipality": "Charleston",
+    "iso_country": "US",
+    "iso_region": "US-SC",
+    "military_connection": "USAF (Charleston Air Force Base)",
+    "wikipedia_link": "https://en.wikipedia.org/wiki/Charleston_International_Airport",
+    "type": "medium_airport",
+    "elevation_ft": 46,
+    "latitude_deg": 32.898602,
+    "longitude_deg": -80.040497
+  },
+  "VPS": {
+    "name": "Destin-Fort Walton Beach Airport",
+    "municipality": "Valparaiso",
+    "iso_country": "US",
+    "iso_region": "US-FL",
+    "military_connection": "USAF (Eglin AFB)",
+    "wikipedia_link": "https://en.wikipedia.org/wiki/Destin%E2%80%93Fort_Walton_Beach_Airport",
+    "type": "medium_airport",
+    "elevation_ft": 87,
+    "latitude_deg": 30.4832,
+    "longitude_deg": -86.525398
+  },
+  "DOV": {
+    "name": "Dover Air Force Base",
+    "municipality": "Dover",
+    "iso_country": "US",
+    "iso_region": "US-DE",
+    "military_connection": "USAF",
+    "wikipedia_link": "https://en.wikipedia.org/wiki/Dover_Air_Force_Base",
+    "type": "medium_airport",
+    "elevation_ft": 24,
+    "latitude_deg": 39.129501,
+    "longitude_deg": -75.466003
+  },
+  "RIV": {
+    "name": "March Air Reserve Base",
+    "municipality": "Riverside",
+    "iso_country": "US",
+    "iso_region": "US-CA",
+    "military_connection": "USAF",
+    "wikipedia_link": "https://en.wikipedia.org/wiki/March_Air_Reserve_Base",
+    "type": "medium_airport",
+    "elevation_ft": 1536,
+    "latitude_deg": 33.880699,
+    "longitude_deg": -117.259003
+  },
+  "BLV": {
+    "name": "Scott AFB/Midamerica Airport",
+    "municipality": "Belleville",
+    "iso_country": "US",
+    "iso_region": "US-IL",
+    "military_connection": "USAF",
+    "wikipedia_link": "https://en.wikipedia.org/wiki/Scott_Air_Force_Base",
+    "type": "medium_airport",
+    "elevation_ft": 459,
+    "latitude_deg": 38.5452,
+    "longitude_deg": -89.835197
+  },
+  "CEF": {
+    "name": "Westover Metropolitan Airport / Westover Air Reserve Base",
+    "municipality": "Chicopee",
+    "iso_country": "US",
+    "iso_region": "US-MA",
+    "military_connection": "USAF",
+    "wikipedia_link": "https://en.wikipedia.org/wiki/Westover_Air_Reserve_Base/Metropolitan_Airport",
+    "type": "medium_airport",
+    "elevation_ft": 241,
+    "latitude_deg": 42.194,
+    "longitude_deg": -72.534798
+  },
+  "OKA": {
+    "name": "Naha Airport / JASDF Naha Air Base",
+    "municipality": "Naha",
+    "iso_country": "JP",
+    "iso_region": "JP-47",
+    "military_connection": "JASDF",
+    "wikipedia_link": "https://en.wikipedia.org/wiki/Naha_Airport",
+    "type": "large_airport",
+    "elevation_ft": 12,
+    "latitude_deg": 26.195801,
+    "longitude_deg": 127.646004
+  },
+  "NAP": {
+    "name": "Naples International Airport",
+    "municipality": "Napoli",
+    "iso_country": "IT",
+    "iso_region": "IT-72",
+    "military_connection": "US Navy",
+    "wikipedia_link": "https://en.wikipedia.org/wiki/Naples_International_Airport",
+    "type": "large_airport",
+    "elevation_ft": 294,
+    "latitude_deg": 40.886002,
+    "longitude_deg": 14.2908
+  },
+  "CHQ": {
+    "name": "Chania International Airport",
+    "municipality": "Souda",
+    "iso_country": "GR",
+    "iso_region": "GR-M",
+    "military_connection": "Hellenic/USAF (Souda Air Base)",
+    "wikipedia_link": "https://en.wikipedia.org/wiki/Chania_International_Airport",
+    "type": "medium_airport",
+    "elevation_ft": 490,
+    "latitude_deg": 35.5317,
+    "longitude_deg": 24.1497
+  }
+} 
