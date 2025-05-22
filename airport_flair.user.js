@@ -335,13 +335,6 @@
                 background-color: rgba(51, 51, 51, 0.85);
                 transition: opacity 0.15s ease-in-out, background-color 0.15s ease-in-out;
             }
-
-            /* Specific styles for flairs within .option-text to prevent layout issues */
-            .option-text .${flairTag},
-            .option-text .${multiAirportFlairClass} {
-                vertical-align: middle; /* Align with the middle of the surrounding text */
-                /* Add other adjustments here if needed, e.g., slight margin adjustments */
-            }
         `;
     }
 
@@ -479,7 +472,7 @@
 
     function replaceTextWithFlair(textNode) {
         if (!textNode.parentNode || textNode.parentNode.classList.contains(processedMark) ||
-            textNode.parentNode.closest('a, script, style, input, textarea, [contenteditable="true"]')) {
+            textNode.parentNode.closest('a, script, style, input, textarea, [contenteditable="true"], .poll-container, .option-text, .' + flairTag + ', .' + potentialFlairClass + ', .' + multiAirportFlairClass)) {
             return;
         }
 
@@ -546,7 +539,7 @@
         }
         else if (node.nodeType === Node.ELEMENT_NODE &&
                  !node.classList.contains(processedMark) &&
-                 !node.closest('a, script, style, input, textarea, [contenteditable="true"], .option-text, .' + flairTag + ', .' + potentialFlairClass + ', .' + multiAirportFlairClass)) {
+                 !node.closest('a, script, style, input, textarea, [contenteditable="true"], .poll-container, .option-text, .' + flairTag + ', .' + potentialFlairClass + ', .' + multiAirportFlairClass)) {
              Array.from(node.childNodes).forEach(child => processNode(child));
         }
     }
