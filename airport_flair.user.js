@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Nitan Airport Flair
 // @namespace    http://tampermonkey.net/
-// @version      0.5.6
+// @version      0.5.7
 // @description  Enhances webpages by identifying airport and multi-airport codes, styling them, and adding interactive tooltips/hyperlinks. Dismiss reverts instances.
 // @author       s5kf
 // @license      CC BY-NC-ND 4.0; https://creativecommons.org/licenses/by-nc-nd/4.0/
@@ -30,15 +30,19 @@
     const potentialFlairClass = 'potential-airport-code'; // New class for potential flairs
     const multiAirportFlairClass = 'multi-airport-flair'; // New class for multi-airport flairs
     const COMMON_TLA_BLOCKLIST = new Set([
-        "CEO", "CFO", "COO", "CTO", "CIO", "CMO", "BSO", // Common C-suite and department heads
-        "GDP", "GNP", "ROI", "KPI", "ETA", "FAQ", "DIY", "AKA", // Common business & general acronyms
+        "CEO", "CFO", "COO", "CTO", "CIO", // Common C-suite and department heads
+        "USD", "EUR", "GBP", "JPY", "CNY", "INR", "BRL", "ARS", "MXN", "COP", "CLP", "PEN", "UYU", "PYG",// Currencies
+        "BTC", "ETH", "XRP", "BCH", "LTC", "XMR", "XLM", "XEM", "XRP", "BCH", "LTC", "XMR", "XLM", "XEM", "XRP", "BCH", "LTC", "XMR", "XLM", "XEM", // Crypto
+        "GDP", "GNP", "GPT", "ROI", "KPI", "ETA", "FAQ", "DIY", "AKA", // Common business & general acronyms
         "USB", "CPU", "GPU", "RAM", "SSD", "HDD", "OSX", "IOS", // Tech acronyms
-        "LOL", "OMG", "BTW", "FYI", "IMO", "BRB", // Internet slang
-        "USA", "DOT", "FAA", "CAA", "FBI", "CIA", // Government and regulatory acronyms
-        "ETA", "ETC", "INC", "LTD", "LLC", "DIY", "FAQ", "PDF", "XML", "DOC",
-        "API", "URL", "WWW", "CSS", "PHP", "SQL", "FTP",
-        "ESG", "VIX", "AOC", "AND", "MVP", "OTA","ITA", "AIR", "ADT" // User reported issues
-
+        "LOL", "OMG", "BTW", "FYI", "IMO", "BRB", "BSO",// Internet slang
+        "USA", "DOT", "DOJ", "DOL", "HHS", "FAA", "CAA", "FBI", "CIA", "CBP", "TSA","ICE", // Government and regulatory acronyms
+        "ETA", "ETC", "INC", "LTD", "LLC", "DIY", "FAQ", "PDF", "XML", "DOC","CSV","TXT","ZIP","RAR","ISO","PPT",
+        "API", "URL", "WWW", "CSS", "PHP", "SQL", "FTP","DNS", "VPN", "VPS", "TLS", "TTL",
+        "ESG", "VIX", "AOC", "AND", "MVP", "OTA", "ITA", "AIR", "ADT", "JAL", "DSW",
+        "CSP", "CSR", "CFU" ,"CIP", "CIU", "UAR", // User reported issues
+        "ATM", "MCC", "SCO", "THE", "NOT", "GOT", "GOD", "BIZ","ECO","EQE","EQS","EQB",
+        "OPT", "CPT", "PTO","SLH", "GAI", "SPG" // User reported issues
         // Add more as needed, ensure they are uppercase
     ]);
 
@@ -330,6 +334,13 @@
                 opacity: 1;
                 background-color: rgba(51, 51, 51, 0.85);
                 transition: opacity 0.15s ease-in-out, background-color 0.15s ease-in-out;
+            }
+
+            /* Specific styles for flairs within .option-text to prevent layout issues */
+            .option-text .${flairTag},
+            .option-text .${multiAirportFlairClass} {
+                vertical-align: middle; /* Align with the middle of the surrounding text */
+                /* Add other adjustments here if needed, e.g., slight margin adjustments */
             }
         `;
     }
